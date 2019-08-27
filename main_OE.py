@@ -7,13 +7,10 @@ import argparse
 import torch
 from torch.utils.data import DataLoader, ConcatDataset
 
-from dataset_OE import Dictionary, VQAFeatureDataset, VisualGenomeFeatureDataset
-import torch.nn as nn
+from dataset_OE import Dictionary, VQAFeatureDataset, VisualGenomeFeatureDataset, TDIUCFeatureDataset
 import base_model_OE as base_model
 from train_OE import train
 import utils
-from utils import trim_collate
-from torch.utils.data.distributed import DistributedSampler
 try:
     import _pickle as pickle
 except:
@@ -22,16 +19,14 @@ except:
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--testing', action='store_true', default=False, help='For fast testing 1 epoch')
     parser.add_argument('--gpu', type=int, default=0, help='specify index of GPU using for training, to use CPU: -1')
     # Basic training hyperparams
     parser.add_argument('--epochs', type=int, default=13)
     parser.add_argument('--batch_size', type=int, default=256)
-    parser.add_argument('--weight_init', type=str, default='none', choices=['none', 'kaiming_normal'])
     # Joint representation C dimension
     parser.add_argument('--num_hid', type=int, default=1024)
     # Choices of models
-    parser.add_argument('--model', type=str, default='ban', choices=['ban', 'tan', 'pdban', 'stacked_attention'],
+    parser.add_argument('--model', type=str, default='ban', choices=['ban', 'san'],
                         help='the model we use')
     parser.add_argument('--op', type=str, default='c')
     # Data
@@ -44,9 +39,6 @@ def parse_args():
     # General training hyperparameters
     parser.add_argument('--clip_norm', default=.25, type=float, metavar='NORM', help='clip threshold of gradients')
     parser.add_argument('--lr', default=1e-3, type=float, metavar='lr', help='initial learning rate')
-    # Mixed precision
-    parser.add_argument('--fp16', action='store_true', help='use FP16')
-    parser.add_argument('--min_loss_scale', default=1e-4, type=float, metavar='D',help='minimum loss scale (for FP16 training)')
     # Delayed updates
     parser.add_argument('--update_freq', default='1', metavar='N',help='update parameters every N_i batches, when in epoch i')
     # BAN
@@ -56,20 +48,15 @@ def parse_args():
     parser.add_argument('--activation', type=str, default='relu', choices=['relu', 'swish'], help='The activation to use for final classifier')
     parser.add_argument('--dropout', default=0.5, type=float, metavar='dropout', help='Dropout of rate of final classifier')
     parser.add_argument('--question_len', default=12, type=int, metavar='N', help='maximum length of input question')
-    parser.add_argument('--distillation', default=False, action='store_true', help='use KD loss')
     # Utilities
     parser.add_argument('--seed', type=int, default=1204, help='random seed')
     parser.add_argument('--print_interval', default=200, type=int, metavar='N',help='print per certain number of steps')
-
-    # Use MoD features
-    parser.add_argument('--use_MoD', action='store_true', default=False, help='Using MoD features')
-    parser.add_argument('--MoD_dir', type=str, help='MoD features dir')
 
     # Train with TDIUC
     parser.add_argument('--use_TDIUC', action='store_true', default=False, help='Using TDIUC dataset to train')
     parser.add_argument('--TDIUC_dir', type=str, help='TDIUC dir')
 
-    # Tan
+    # CTI
     parser.add_argument('--rank', default=32, type=int, help='number of rank decomposition')
     parser.add_argument('--h_out', default=1, type=int)
     parser.add_argument('--h_mm', default=512, type=int)
@@ -79,6 +66,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int)
 
     # Distillation
+    parser.add_argument('--distillation', default=False, action='store_true', help='use KD loss')
     parser.add_argument('--T', default=1.5, type=float)
     parser.add_argument('--alpha', default=0.2, type=float)
 
@@ -107,10 +95,10 @@ if __name__ == '__main__':
 
     if args.use_TDIUC:
         dictionary = Dictionary.load_from_file('data_TDIUC/dictionary.pkl')
-        train_dset = VQAFeatureDataset('train', args, dictionary, dataroot='data_TDIUC', adaptive=True, max_boxes=args.max_boxes,
-                                       question_len=args.question_len)
-        val_dset = VQAFeatureDataset('val', args, dictionary, dataroot='data_TDIUC', adaptive=True, max_boxes=args.max_boxes,
-                                     question_len=args.question_len)
+        train_dset = TDIUCFeatureDataset('train', args, dictionary, dataroot='data_TDIUC', adaptive=True,
+                                         max_boxes=args.max_boxes, question_len=args.question_len)
+        val_dset = TDIUCFeatureDataset('val', args, dictionary, dataroot='data_TDIUC', adaptive=True,
+                                       max_boxes=args.max_boxes, question_len=args.question_len)
     else:
         dictionary = Dictionary.load_from_file('data_vqa/dictionary.pkl')
         train_dset = VQAFeatureDataset('train', args, dictionary, adaptive=True, max_boxes=args.max_boxes,
@@ -138,20 +126,23 @@ if __name__ == '__main__':
         optim.load_state_dict(model_data.get('optimizer_state', model_data))
         epoch = model_data['epoch'] + 1
 
-    if args.use_both: # use train & val splits to optimize
-        if args.use_vg: # use a portion of Visual Genome dataset
+    if args.use_both:  # use train & val splits to optimize
+        if args.use_vg:  # use a portion of Visual Genome dataset
             vg_dsets = [
-                VisualGenomeFeatureDataset('train', \
+                VisualGenomeFeatureDataset('train',
                     train_dset.features, train_dset.spatials, dictionary, adaptive=True, pos_boxes=train_dset.pos_boxes),
-                VisualGenomeFeatureDataset('val', \
+                VisualGenomeFeatureDataset('val',
                     val_dset.features, val_dset.spatials, dictionary, adaptive=True, pos_boxes=val_dset.pos_boxes)]
             trainval_dset = ConcatDataset([train_dset, val_dset]+vg_dsets)
         else:
             trainval_dset = ConcatDataset([train_dset, val_dset])
-        train_loader = DataLoader(trainval_dset, batch_size, shuffle=sampler is None, num_workers=0, collate_fn=utils.trim_collate, pin_memory=True)
+        train_loader = DataLoader(trainval_dset, batch_size, shuffle=sampler is None, num_workers=0,
+                                  collate_fn=utils.trim_collate, pin_memory=True)
         eval_loader = None
     else:
-        train_loader = DataLoader(train_dset, batch_size, sampler=sampler, shuffle=sampler is None, num_workers=0, collate_fn=utils.trim_collate, pin_memory=True)
-        eval_loader = DataLoader(val_dset, batch_size*2, shuffle=False,sampler=sampler, num_workers=0, collate_fn=utils.trim_collate, pin_memory=False)
+        train_loader = DataLoader(train_dset, batch_size, sampler=sampler, shuffle=sampler is None, num_workers=0,
+                                  collate_fn=utils.trim_collate, pin_memory=True)
+        eval_loader = DataLoader(val_dset, batch_size*2, shuffle=False,sampler=sampler, num_workers=0,
+                                 collate_fn=utils.trim_collate, pin_memory=False)
 
     train(args, model, train_loader, eval_loader, args.epochs, args.output, optim, epoch)

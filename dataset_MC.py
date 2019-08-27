@@ -1,6 +1,6 @@
 """
-This code is modified from Hengyuan Hu's repository.
-https://github.com/hengyuan-hu/bottom-up-attention-vqa
+This code is modified from jnhwkim's repository.
+https://github.com/jnhwkim/ban-vqa
 """
 from __future__ import print_function
 import os
@@ -14,24 +14,9 @@ with warnings.catch_warnings():
     import h5py
 import torch
 from torch.utils.data import Dataset
-import tools.compute_softscore
 import itertools
 
 COUNTING_ONLY = False
-
-# Following Trott et al. (ICLR 2018)
-#   Interpretable Counting for Visual Question Answering
-def is_howmany(q, a, label2ans):
-    if 'how many' in q.lower() or \
-       ('number of' in q.lower() and 'number of the' not in q.lower()) or \
-       'amount of' in q.lower() or \
-       'count of' in q.lower():
-        if a is None or answer_filter(a, label2ans):
-            return True
-        else:
-            return False
-    else:
-        return False
 
 
 def answer_filter(answers, label2ans, max_num=10):
@@ -93,7 +78,7 @@ class Dictionary(object):
         return len(self.idx2word)
 
 
-def _create_entry(img, question, answer, label, teacher_logit, ans_gt, ans_mc):
+def _create_entry(img, question, answer, label, ans_gt, ans_mc):
     if None!=answer:
         answer.pop('image_id')
         answer.pop('question_id')
@@ -105,21 +90,19 @@ def _create_entry(img, question, answer, label, teacher_logit, ans_gt, ans_mc):
         'answer'      : answer,
         'label'      : label,
         'ans_gt'      : ans_gt,
-        'ans_mc'      : ans_mc,
-        'teacher_logit': teacher_logit}
+        'ans_mc'      : ans_mc}
     return entry
 
 
-def _load_dataset(dataroot, name, img_id2val, label2ans, teacher_logits, ans_candidates):
+def _load_dataset(dataroot, name, img_id2val, label2ans, ans_candidates):
     """Load entries
 
     img_id2val: dict {img_id -> val} val can be used to retrieve image or features
     dataroot: root path of dataset
-    name: 'train', 'val', 'test-dev2015', test2015'
+    name: 'train', 'val', 'test'
     """
     question_path = os.path.join(
-        dataroot, 'v2_OpenEnded_mscoco_%s_questions.json' % \
-        (name + '2014' if 'test'!=name[:4] else name))
+        dataroot, 'v7w_%s_questions.json' % name)
     questions = sorted(json.load(open(question_path))['questions'],
                        key=lambda x: x['question_id'])
     entries = []
@@ -130,72 +113,7 @@ def _load_dataset(dataroot, name, img_id2val, label2ans, teacher_logits, ans_can
         label = ans_candidates[str(question['question_id'])]['label']
 
         if not COUNTING_ONLY or is_howmany(question['question'], None, label2ans):
-            entries.append(_create_entry(img_id2val[img_id], question, None, label, \
-                                         teacher_logits[question['question_id']] if len(teacher_logits)>0 else None,\
-                           ans_gt, ans_mc))
-
-    return entries
-
-
-def _load_visualgenome(dataroot, name, img_id2val, label2ans, adaptive=True):
-    """Load entries
-
-    img_id2val: dict {img_id -> val} val can be used to retrieve image or features
-    dataroot: root path of dataset
-    name: 'train', 'val'
-    """
-    question_path = os.path.join(dataroot, 'question_answers.json')
-    image_data_path = os.path.join(dataroot, 'image_data.json')
-    ans2label_path = os.path.join(dataroot, 'cache', 'trainval_ans2label.pkl')
-    cache_path = os.path.join(dataroot, 'cache', 'vg_%s%s_target.pkl' % (name, '_adaptive' if adaptive else ''))
-
-
-    if os.path.isfile(cache_path):
-        entries = cPickle.load(open(cache_path, 'rb'))
-    else:
-        entries = []
-        ans2label = cPickle.load(open(ans2label_path, 'rb'))
-        vgq = json.load(open(question_path, 'r'))
-        _vgv = json.load(open(image_data_path, 'r')) #108,077
-        vgv = {}
-        for _v in _vgv: 
-            if None != _v['coco_id']:
-                vgv[_v['image_id']] = _v['coco_id']
-        counts = [0, 0, 0, 0] # used image, used question, total question, out-of-split
-        for vg in vgq:
-            coco_id = vgv.get(vg['id'], None)
-            if None != coco_id:
-                counts[0] += 1
-                img_idx = img_id2val.get(coco_id, None)
-                if None == img_idx:
-                    counts[3] += 1
-                for q in vg['qas']:
-                    counts[2] += 1
-                    _answer = tools.compute_softscore.preprocess_answer(q['answer'])
-                    label = ans2label.get(_answer, None)
-                    if None != label and None != img_idx:
-                        counts[1] += 1
-                        answer = {
-                            'labels': [label],
-                            'scores': [1.]}
-                        entry = {
-                            'question_id' : q['qa_id'],
-                            'image_id'    : coco_id,
-                            'image'       : img_idx,
-                            'question'    : q['question'],
-                            'answer'      : answer}
-                        if not COUNTING_ONLY or is_howmany(q['question'], answer, label2ans):
-                            entries.append(entry)
-
-        print('Loading VisualGenome %s' % name)
-        print('\tUsed COCO images: %d/%d (%.4f)' % \
-            (counts[0], len(_vgv), counts[0]/len(_vgv)))
-        print('\tOut-of-split COCO images: %d/%d (%.4f)' % \
-            (counts[3], counts[0], counts[3]/counts[0]))
-        print('\tUsed VG questions: %d/%d (%.4f)' % \
-            (counts[1], counts[2], counts[1]/counts[2]))
-        with open(cache_path, 'wb') as f:
-            cPickle.dump(entries, open(cache_path, 'wb'))
+            entries.append(_create_entry(img_id2val[img_id], question, None, label, ans_gt, ans_mc))
 
     return entries
 
@@ -207,20 +125,14 @@ def _find_coco_id(vgv, vgv_id):
     return None
 
 
-class VQAFeatureDataset(Dataset):
-    def __init__(self, name, args, dictionary, dataroot='data', max_boxes=100, question_len=14, adaptive=False):
-        super(VQAFeatureDataset, self).__init__()
-        assert name in ['train', 'val', 'test-dev2015', 'test2015']
+class V7WDataset(Dataset):
+    def __init__(self, name, args, dictionary, dataroot='data_v7w', max_boxes=100, question_len=14, adaptive=False):
+        super(V7WDataset, self).__init__()
+        assert name in ['train', 'val', 'test']
 
         ans2label_path = os.path.join(dataroot, 'cache', 'trainval_ans2label.pkl')
         label2ans_path = os.path.join(dataroot, 'cache', 'trainval_label2ans.pkl')
         answer_candidate_path = os.path.join(dataroot, 'answer_%s.json' % name)
-
-        self.teacher_logits = []
-        if args.distillation:
-            if name=='train':
-                teacher_logits_path = os.path.join(dataroot,'teacher_logits.pkl')
-                self.teacher_logits = cPickle.load(open(teacher_logits_path,'rb'))
 
         self.answer_candidates = json.load(open(answer_candidate_path))
         self.ans2label = cPickle.load(open(ans2label_path, 'rb'))
@@ -228,8 +140,8 @@ class VQAFeatureDataset(Dataset):
         self.num_ans_candidates = len(self.ans2label)
         self.dictionary = dictionary
         self.adaptive = adaptive
-        self.pool = torch.nn.AvgPool1d(2, stride=4)
-
+        self.max_box = max_boxes
+        self.question_len = question_len
         self.img_id2idx = cPickle.load(
             open(os.path.join(dataroot, '%s%s_imgid2idx.pkl' % (name, '' if self.adaptive else '36')), 'rb'))
         
@@ -238,21 +150,21 @@ class VQAFeatureDataset(Dataset):
         if args.use_feature == 'grid':
             self.adaptive = False
             self.img_id2idx = cPickle.load(open(os.path.join(dataroot, 'v7w/%s_imgid2idx.pkl'%name),'rb'))
-            h5_path = os.path.join(dataroot, 'v7w/%s.hdf5'%name)
+            h5_path = os.path.join(dataroot, 'v7w/%s.hdf5' % name)
 
         print('loading features from h5 file')
         with h5py.File(h5_path, 'r') as hf:
             if args.use_feature == 'grid':
                 self.features = np.array(hf.get('image_features'))
-                self.spatials = np.zeros(np.shape(self.features))#np.array(hf.get('spatial_features'))
+                self.spatials = np.zeros(np.shape(self.features))
             else:
                 self.features = np.array(hf.get('image_features'))
                 self.spatials = np.array(hf.get('spatial_features'))
                 if self.adaptive:
                     self.pos_boxes = np.array(hf.get('pos_boxes'))
 
-        self.entries = _load_dataset(dataroot, name, self.img_id2idx, self.label2ans, self.teacher_logits, self.answer_candidates)
-        self.tokenize()
+        self.entries = _load_dataset(dataroot, name, self.img_id2idx, self.label2ans, self.answer_candidates)
+        self.tokenize(self.question_len)
         self.ans_tokenize()
         self.tensorize()
         self.v_dim = self.features.size(1 if self.adaptive else 2)
@@ -338,131 +250,25 @@ class VQAFeatureDataset(Dataset):
             spatials = self.spatials[entry['image']]
         else:
             features = self.features[self.pos_boxes[entry['image']][0]:self.pos_boxes[entry['image']][1], :]
-            if features.size(0) > 50:
-                features = features[:50]
             spatials = self.spatials[self.pos_boxes[entry['image']][0]:self.pos_boxes[entry['image']][1], :]
-            if spatials.size(0) > 50:
-                spatials = spatials[:50]
+
+            features = features[:self.max_box]
+            spatials = spatials[:self.max_box]
 
         question = entry['q_token']
         question_id = entry['question_id']
-        answer = entry['answer']
 
         ans_gt = entry['ans_gt_token']
         ans_mc = entry['ans_mc_token']
-        mc = entry['ans_mc']
-        gt = entry['ans_gt']
         label = entry['label']
-        img_id = entry['image_id']
-        if None!=answer:
-            try:
-                teacher_logit = torch.from_numpy(np.float32(entry['teacher_logit']))
-            except:
-                teacher_logit = 0
-            labels = answer['labels']
-            scores = answer['scores']
-            target = torch.zeros(self.num_ans_candidates)
-            if labels is not None:
-                target.scatter_(0, labels, scores)
-            return features, spatials, question, label, teacher_logit, ans_mc, ans_gt
-        else:
-            return features, spatials, question, label, ans_mc, ans_gt
-            #return features, spatials, question, label, img_id, question_id, ans_mc, ans_gt, mc, gt
+
+        return features, spatials, question, label, ans_mc, ans_gt
 
     def __len__(self):
         return len(self.entries)
 
 
-class VisualGenomeFeatureDataset(Dataset):
-    def __init__(self, name, features, spatials, dictionary, dataroot='data', adaptive=False, pos_boxes=None):
-        super(VisualGenomeFeatureDataset, self).__init__()
-        # do not use test split images!
-        assert name in ['train', 'val']
-
-        ans2label_path = os.path.join(dataroot, 'cache', 'trainval_ans2label.pkl')
-        label2ans_path = os.path.join(dataroot, 'cache', 'trainval_label2ans.pkl')
-        ans_embedding_path = os.path.join(dataroot, 'ans_embedding.pkl')
-
-        self.ans_embedding = torch.from_numpy(cPickle.load(open(ans_embedding_path, 'rb')))
-        self.ans2label = cPickle.load(open(ans2label_path, 'rb'))
-        self.label2ans = cPickle.load(open(label2ans_path, 'rb'))
-        self.num_ans_candidates = len(self.ans2label)
-
-        self.dictionary = dictionary
-        self.adaptive = adaptive
-
-        self.img_id2idx = cPickle.load(
-                open(os.path.join(dataroot, '%s%s_imgid2idx.pkl' % (name, '' if self.adaptive else '36')), 'rb'))
-
-        self.features = features
-        self.spatials = spatials
-        if self.adaptive:
-            self.pos_boxes = pos_boxes
-
-        self.entries = _load_visualgenome(dataroot, name, self.img_id2idx, self.label2ans)
-        self.tokenize()
-        self.tensorize()
-        self.v_dim = self.features.size(1 if self.adaptive else 2)
-        self.s_dim = self.spatials.size(1 if self.adaptive else 2)
-
-    def tokenize(self, max_length=14):
-        """Tokenizes the questions.
-
-        This will add q_token in each entry of the dataset.
-        -1 represent nil, and should be treated as padding_idx in embedding
-        """
-        for entry in self.entries:
-            tokens = self.dictionary.tokenize(entry['question'], False)
-            tokens = tokens[:max_length]
-            if len(tokens) < max_length:
-                # Note here we pad in front of the sentence
-                padding = [self.dictionary.padding_idx] * (max_length - len(tokens))
-                tokens = tokens + padding
-            utils.assert_eq(len(tokens), max_length)
-            entry['q_token'] = tokens
-
-    def tensorize(self):
-        for entry in self.entries:
-            question = torch.from_numpy(np.array(entry['q_token']))
-            entry['q_token'] = question
-
-            answer = entry['answer']
-            labels = np.array(answer['labels'])
-            scores = np.array(answer['scores'], dtype=np.float32)
-            if len(labels):
-                labels = torch.from_numpy(labels)
-                scores = torch.from_numpy(scores)
-                entry['answer']['labels'] = labels
-                entry['answer']['scores'] = scores
-            else:
-                entry['answer']['labels'] = None
-                entry['answer']['scores'] = None
-
-    def __getitem__(self, index):
-        entry = self.entries[index]
-        if not self.adaptive:
-            features = self.features[entry['image']]
-            spatials = self.spatials[entry['image']]
-        else:
-            features = self.features[self.pos_boxes[entry['image']][0]:self.pos_boxes[entry['image']][1],:]
-            spatials = self.spatials[self.pos_boxes[entry['image']][0]:self.pos_boxes[entry['image']][1],:]
-
-        question = entry['q_token']
-        question_id = entry['question_id']
-        answer = entry['answer']
-        labels = answer['labels']
-        scores = answer['scores']
-        ans_emb = self.ans_embedding[answer['labels'][np.argmax(answer['scores'])], :]
-        target = torch.zeros(self.num_ans_candidates)
-        if labels is not None:
-            target.scatter_(0, labels, scores)
-        return features, spatials, question, target, 0, ans_emb
-
-    def __len__(self):
-        return len(self.entries)
-
-
-def tfidf_from_questions(names, dictionary, dataroot='data', target=['vqa', 'vg']):
+def tfidf_from_questions(names, dictionary, dataroot='data_v7w', target=['vqa']):
     inds = [[], []] # rows, cols for uncoalesce sparse matrix
     df = dict()
     N = len(dictionary)
@@ -480,10 +286,9 @@ def tfidf_from_questions(names, dictionary, dataroot='data', target=['vqa', 'vg'
 
     if 'vqa' in target: # VQA 2.0
         for name in names:
-            assert name in ['train', 'val', 'test-dev2015', 'test2015']
+            assert name in ['train', 'val', 'test']
             question_path = os.path.join(
-                dataroot, 'v2_OpenEnded_mscoco_%s_questions.json' % \
-                (name + '2014' if 'test'!=name[:4] else name))
+                dataroot, 'v7w_%s_questions.json' % name)
             questions = json.load(open(question_path))['questions']
 
             for question in questions:
@@ -503,11 +308,6 @@ def tfidf_from_questions(names, dictionary, dataroot='data', target=['vqa', 'vg'
             for q in vg['qas']:
                 populate(inds, df, q['question'])
 
-    if 'cap' in target: # MSCOCO Caption
-        for split in ['train2017', 'val2017']:
-            captions = json.load(open('data/annotations/captions_%s.json' % split, 'r'))
-            for caps in captions['annotations']:
-                populate(inds, df, caps['caption'])
 
     # TF-IDF 
     vals = [1] * len(inds[1])
@@ -533,37 +333,6 @@ def tfidf_from_questions(names, dictionary, dataroot='data', target=['vqa', 'vg'
     emb_dim = 300
     glove_file = 'data/glove/glove.6B.%dd.txt' % emb_dim
     weights, word2emb = utils.create_glove_embedding_init(dictionary.idx2word[N:], glove_file)
-    #weights, word2emb = utils.create_bert_embedding_init(dictionary.idx2word[N:])
     print('tf-idf stochastic matrix (%d x %d) is generated.' % (tfidf.size(0), tfidf.size(1)))
 
     return tfidf, weights
-
-
-if __name__=='__main__':
-    dictionary = Dictionary.load_from_file('data/dictionary.pkl')
-    tfidf, weights = tfidf_from_questions(['train', 'val', 'test2015'], dictionary)
-
-if __name__=='__main2__':
-    from torch.utils.data import DataLoader
-
-    dictionary = Dictionary.load_from_file('data/dictionary.pkl')
-    train_dset = VQAFeatureDataset('val', dictionary, adaptive=True)
-    # name = 'train'
-    # eval_dset = VQAFeatureDataset(name, dictionary)
-    # vg_dset = VisualGenomeFeatureDataset(name, eval_dset.features, eval_dset.spatials, dictionary)
-
-    # train_loader = DataLoader(vg_dset, 10, shuffle=True, num_workers=1)
-
-    loader = DataLoader(train_dset, 10, shuffle=True, num_workers=1, collate_fn=utils.trim_collate)
-    for i, (v, b, q, a) in enumerate(loader):
-        print(v.size()) 
-
-# VisualGenome Train
-#     Used COCO images: 51487/108077 (0.4764)
-#     Out-of-split COCO images: 17464/51487 (0.3392)
-#     Used VG questions: 325311/726932 (0.4475)
-
-# VisualGenome Val
-#     Used COCO images: 51487/108077 (0.4764)
-#     Out-of-split COCO images: 34023/51487 (0.6608)
-#     Used VG questions: 166409/726932 (0.2289)

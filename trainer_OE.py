@@ -1,9 +1,10 @@
+'''
+This code is written by Huy Tran.
+'''
 import torch
-import torch.nn as nn
 import utils
 import contextlib
 from collections import defaultdict, OrderedDict
-import torch.optim.lr_scheduler as lr_scheduler
 from meters import AverageMeter, TimeMeter
 
 
@@ -145,6 +146,7 @@ class Trainer(object):
             return loss, grad_norm, batch_score
         else:
             return None  # buffering updates
+
     def _forward(self, sample, eval=False):
         # prepare model and optimizer
         if eval:
@@ -171,28 +173,13 @@ class Trainer(object):
                             loss = loss/answers.size(0)  # divided by batch size
                         final_preds = preds
 
-                    if self.args.model == "pdban":
-                        preds, _ = self.model(sample[0], sample[1], sample[2], sample[3])
-                        if self.distillation:
-                            loss = self.criterion(preds.float(), teacher_logits.float(), answers)  # divided by batch size
-                        else:
-                            loss = self.criterion(preds.float(), answers)
-                            loss = loss/answers.size(0)
-                        final_preds = preds
-
-                    if self.args.model == 'tan':
-                        preds, _ = self.model(sample[0], sample[2], sample[6])
-                        loss = self.criterion(preds.float(), answers)
-                        loss /= answers.size(0)
-                        final_preds = preds
-
-                    if self.args.model == "stacked_attention":
+                    if self.args.model == "san":
                         preds = self.model(sample[0], sample[2])
                         if self.distillation:
                             loss = self.criterion(preds.float(), teacher_logits.float(), answers)
                         else:
                             loss = self.criterion(preds.float(), teacher_logits.float(), answers)
-                            loss = loss/answers.size(0)
+                            loss = loss/answers.size(0)  # divided by batch size
                         final_preds = preds
 
                     batch_score = compute_score_with_logits(final_preds, sample[3].data, sample[4]).sum()

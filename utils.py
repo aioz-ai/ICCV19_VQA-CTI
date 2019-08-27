@@ -24,8 +24,6 @@ import time
 # from dataset import Dictionary
 import dataset_MC as dataset
 
-from pytorch_pretrained_bert import BertTokenizer, BertModel
-
 EPS = 1e-7
 
 
@@ -222,20 +220,6 @@ def create_glove_embedding_init(idx2word, glove_file):
     a=0
     return weights, word2emb
 
-def create_bert_embedding_init(idx2word):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    model = BertModel.from_pretrained('bert-base-uncased')
-    model.eval()
-    weights = np.zeros((len(idx2word), 768), dtype=np.float32)
-
-    for idx, word in enumerate(idx2word):
-        tokenize_text = tokenizer.tokenize(word)
-        index_token = tokenizer.convert_tokens_to_ids(tokenize_text)
-        tokens_tensor = torch.tensor([index_token])
-        weights[idx] = model(tokens_tensor)[1].detach().numpy()
-    a=0
-    return weights, None
-
 # --------------------FAIRSEQ functions---------------------------
 
 
@@ -391,32 +375,31 @@ def time_since(since, percent):
     return '%s (- %s)' % (as_minutes(seconds), as_minutes(rest_seconds))
 
 
-def tfidf_loading( use_tfidf, w_emb, args, dataroot='data'):
+def tfidf_loading( use_tfidf, w_emb, args, dataroot='data_vqa'):
 
     tfidf = None
     weights = None
+    if args.use_TDIUC:
+        dataroot = args.TDIUC_dir
 
     if use_tfidf:
         if os.path.isfile('%s/embed_tfidf_weights.pkl' % dataroot) is True:
             print("Loading embedding tfidf and weights from file")
             with open('%s/embed_tfidf_weights.pkl' % dataroot, 'rb') as f:
-                # tfidf, weights = pickle.load(f)
                 w_emb = torch.load(f)
-            # tfidf = utils.to_sparse(tfidf)
             print("Load embedding tfidf and weights from file successfully")
         else:
             print("Embedding tfidf and weights haven't been saving before")
             dictionary = dataset.Dictionary.load_from_file('data/dictionary.pkl')
             tfidf, weights = dataset.tfidf_from_questions(['train', 'val', 'test2015'], dictionary)
-            w_emb.init_embedding('data/glove6b_init_300d.npy', tfidf, weights)
-            with open('data/embed_tfidf_weights.pkl', 'wb') as f:
-                # pickle.dump((tfidf.to_dense(), weights), f)
+            w_emb.init_embedding('%s/glove6b_init_300d.npy' % dataroot, tfidf, weights)
+            with open('%s/embed_tfidf_weights.pkl' % dataroot, 'wb') as f:
                 torch.save(w_emb, f)
             print("Saving embedding with tfidf and weights successfully")
     else:
         if args.use_TDIUC:
             w_emb.init_embedding(os.path.join(args.TDIUC_dir, 'glove6b_init_300d.npy'), tfidf, weights)
         else:
-            w_emb.init_embedding('data/glove6b_init_300d.npy', tfidf, weights)
+            w_emb.init_embedding('%s/glove6b_init_300d.npy' % args.TDIUC_dir, tfidf, weights)
 
     return w_emb

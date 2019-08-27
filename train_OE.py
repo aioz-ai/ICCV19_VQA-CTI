@@ -8,16 +8,8 @@ import torch
 import utils
 import torch.nn as nn
 from trainer_OE import Trainer
-from trainer_fp16 import FP16Trainer
 import loss_function
 warmup_updates = 4000
-
-
-def init_weights(m):
-    if type(m) == nn.Linear:
-        with torch.no_grad():
-            torch.nn.init.kaiming_normal_(m.weight)
-            # m.bias.data.fill_(0.01)
 
 
 def compute_score_with_logits(logits, labels):
@@ -28,17 +20,8 @@ def compute_score_with_logits(logits, labels):
     return scores
 
 
-def create_onehot_centroid(num_centroid):
-    centroids = [indice for indice in range(num_centroid)]
-    centroids = torch.Tensor(centroids).unsqueeze(1).long()
-    onehot_centroid = torch.zeros(num_centroid,num_centroid)
-    onehot_centroid.scatter_(1,centroids,1)
-    return  onehot_centroid
-
-
 def train(args, model, train_loader, eval_loader, num_epochs, output, opt=None, s_epoch=0):
     device = args.device
-    # lr_default = 1e-3 if eval_loader is not None else args.lr
     lr_default = args.lr
     lr_decay_step = 2
     lr_decay_rate = .25
@@ -59,17 +42,11 @@ def train(args, model, train_loader, eval_loader, num_epochs, output, opt=None, 
     logger.write(args.__repr__())
     best_eval_score = 0
 
-    if args.weight_init == "kaiming_normal":
-        model.apply(init_weights)
-
     utils.print_model(model, logger)
-    logger.write('optim: adamax lr=%.4f, decay_step=%d, decay_rate=%.2f, grad_clip=%.2f' % \
-        (lr_default, lr_decay_step, lr_decay_rate, grad_clip))
+    logger.write('optim: adamax lr=%.4f, decay_step=%d, decay_rate=%.2f, grad_clip=%.2f' %
+                 (lr_default, lr_decay_step, lr_decay_rate, grad_clip))
     # Create trainer
-    if args.fp16:  # Using FP-16 for training
-        trainer = FP16Trainer(args, model, criterion, lr_default, optim)
-    else:  # Using FP-32 for training
-        trainer = Trainer(args, model, criterion, optim)
+    trainer = Trainer(args, model, criterion, optim)
     update_freq = int(args.update_freq)
     wall_time_start = time.time()
     for epoch in range(s_epoch, num_epochs):
@@ -89,19 +66,12 @@ def train(args, model, train_loader, eval_loader, num_epochs, output, opt=None, 
             logger.write('decreased lr: %.8f' % trainer.optimizer.param_groups[0]['lr'])
         else:
             logger.write('lr: %.8f' % trainer.optimizer.param_groups[0]['lr'])
-        for i, (v, b, q, a, t_logits) in enumerate(train_loader):
-            if args.fp16:
-                v = v.to(device).half()
-                b = b.to(device).half()
-                q = q.to(device)
-                a = a.to(device)
-            else:
-                v = v.to(device)
-                b = b.to(device)
-                q = q.to(device)
-                a = a.to(device)
-                t_logits = t_logits.to(device)
-
+        for i, (v, b, q, a, _, t_logits) in enumerate(train_loader):
+            v = v.to(device)
+            b = b.to(device)
+            q = q.to(device)
+            a = a.to(device)
+            t_logits = t_logits.to(device)
             sample = [v, b, q, a, t_logits]
             if i < num_batches - 1 and (i + 1) % update_freq > 0:
                 trainer.train_step(sample, update_params=False)
@@ -114,18 +84,10 @@ def train(args, model, train_loader, eval_loader, num_epochs, output, opt=None, 
                 train_score += batch_score
                 num_updates += 1
                 if num_updates % int(args.print_interval / update_freq) == 0:
-                    if args.fp16:
-                        print("Iter: {}, Loss {:.4f}, Norm: {:.4f}, Total norm: {:.4f}, Num updates: {}, Loss scale: {}, "
-                              "Wall time: {:.2f}, ETA: {}".format(i + 1, total_loss / ((num_updates + 1)),
-                              grad_norm, total_norm, num_updates, trainer.get_loss_scale(),
-                              time.time() - wall_time_start, utils.time_since(t, i / num_batches)))
-                    else:
-                        print("Iter: {}, Loss {:.4f}, VQA Loss {:.4f}, Norm: {:.4f}, Total norm: {:.4f},"
-                              " Num updates: {}, Wall time: {:.2f}, ETA: {}".format(i + 1, total_loss / ((num_updates + 1)),
-                              total_loss / ((num_updates + 1)), grad_norm, total_norm, num_updates,
-                              time.time() - wall_time_start, utils.time_since(t, i / num_batches)))
-                    if args.testing:
-                        break
+                    print("Iter: {}, Loss {:.4f}, VQA Loss {:.4f}, Norm: {:.4f}, Total norm: {:.4f},"
+                          " Num updates: {}, Wall time: {:.2f}, ETA: {}".format(i + 1, total_loss / ((num_updates + 1)),
+                          total_loss / ((num_updates + 1)), grad_norm, total_norm, num_updates,
+                          time.time() - wall_time_start, utils.time_since(t, i / num_batches)))
 
         total_loss /= num_updates
         train_score = 100 * train_score / (num_updates * args.batch_size)
@@ -133,7 +95,6 @@ def train(args, model, train_loader, eval_loader, num_epochs, output, opt=None, 
         if eval_loader is not None:
             print("Evaluating...")
             trainer.model.train(False)
-            # torch.cuda.empty_cache()
             eval_score, bound = evaluate(model, eval_loader, args)
             trainer.model.train(True)
 
@@ -156,9 +117,7 @@ def train(args, model, train_loader, eval_loader, num_epochs, output, opt=None, 
 def evaluate(model, dataloader, args):
     device = args.device
     score = 0
-    question_type_score = 0
     upper_bound = 0
-    question_type_upper_bound = 0
     num_data = 0
     with torch.no_grad():
         for v, b, q, a, _ in iter(dataloader):
@@ -171,13 +130,7 @@ def evaluate(model, dataloader, args):
             if args.model == "ban":
                 final_preds, _ = model(v, b, q, a)
 
-            if args.model == "pdban":
-                final_preds, _ = model(v, b, q, a)
-
-            if args.model == "tan":
-                final_preds = model(v, q, a)
-
-            if args.model == "stacked_attention":
+            elif args.model == "san":
                 final_preds = model(v, q)
 
             batch_score = compute_score_with_logits(final_preds, a.to(device)).sum()
@@ -187,10 +140,5 @@ def evaluate(model, dataloader, args):
 
     score = score / len(dataloader.dataset)
     upper_bound = upper_bound / len(dataloader.dataset)
-    if "qt" in args.model:
-        question_type_score /= len(dataloader.dataset)
-        question_type_upper_bound /= len(dataloader.dataset)
-
-    if "qt" in args.model:
-        return score, upper_bound, question_type_score, question_type_upper_bound
     return score, upper_bound
+

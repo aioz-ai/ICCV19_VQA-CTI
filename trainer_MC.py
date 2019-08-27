@@ -15,13 +15,12 @@ class Trainer(object):
     Main class for training.
     """
 
-    def __init__(self, args, model, criterion_1, criterion_2, optimizer=None ):
+    def __init__(self, args, model, criterion, optimizer=None ):
         self.args = args
 
         # copy model and criterion on current device
         self.model = model.to(self.args.device)
-        self.criterion_1 = criterion_1.to(self.args.device)
-        self.criterion_2 = criterion_2.to(self.args.device)
+        self.criterion = criterion.to(self.args.device)
         # initialize meters
         self.meters = OrderedDict()
         self.meters['train_loss'] = AverageMeter()
@@ -161,37 +160,22 @@ class Trainer(object):
             try:
                 with torch.no_grad() if eval else contextlib.ExitStack():
                     # calculate loss and sample size
-                    # sample[0] = v, sample[1] = b, sample[2] = q, sample[3] = a
                     answers = sample[3]
-                    teacher_logit = sample[4]
-                    ans_embedding = sample[5]
                     if self.args.model == "ban":
-                        preds, _ = self.model(sample[0], sample[1], sample[2], sample[5])
+                        preds, _ = self.model(sample[0], sample[1], sample[2], sample[4])
                         loss = self.criterion(preds.float(), answers)
                         loss = loss / answers.size(0)
                         final_preds = preds
 
-                    if self.args.model == "STL":
-                        preds = self.model(sample[0], sample[2], sample[5])
-                        loss = self.criterion(preds.float(), answers)
-                        loss = loss / answers.size(0)
-                        final_preds = preds
-
-                    if self.args.model == "stacked_attention":
-                        preds = self.model(sample[0], sample[2], sample[5])
+                    elif self.args.model == "san":
+                        preds = self.model(sample[0], sample[2], sample[4])
                         loss = self.criterion(preds.float(), answers)
                         loss = loss / answers.size(0)
 
                         final_preds = preds
 
-                    if self.args.model == "pdban":
-                        preds, _ = self.model(sample[0], sample[1], sample[2], sample[3])
-                        loss = self.criterion(preds.float(), answers)
-                        loss = loss / answers.size(0)
-                        final_preds = preds
-
-                    if self.args.model == "tan":
-                        preds, _ = self.model(sample[0], sample[1], sample[2], sample[5])
+                    elif self.args.model == "cti":
+                        preds, _ = self.model(sample[0], sample[1], sample[2], sample[4])
                         # calculate answer loss
                         loss = self.criterion(preds.float(), answers)
                         loss /= answers.size(0)  # divided by batch size
