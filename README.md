@@ -41,11 +41,6 @@ pip install -r requirements.txt
 
 All data should be downloaded via [link](https://vision.aioz.io/d/965325537ca642a3a822/). The downloaded file should be extracted to `data_vqa/`, `data_TDIUC/`, and `data_v7w/` directory for `VQA`, `TDIUC`, `V7W dataset` respectively.
 
-The easiest way to download the data is to run the provided script `tools/download_data.sh` from the repository root.
-```
-sh tools/download_data.sh
-```
-
 ## Training phase
 ### 1. For free-form opened-ended task in VQA-2.0 dataset
 
