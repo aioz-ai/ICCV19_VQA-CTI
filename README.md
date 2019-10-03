@@ -8,7 +8,7 @@ For free-form opened-ended VQA task, our proposal achieved **67.4** on [VQA-2.0 
 
 For multiple choice VQA task, our proposal achieved **72.3** on [Visual7W dataset](https://github.com/yukezhu/visual7w-toolkit) in MC-VQA accuracy metric proposed in [here](http://openaccess.thecvf.com/content_cvpr_2016/papers/Zhu_Visual7W_Grounded_Question_CVPR_2016_paper.pdf). 
 
-In this repo, we provide pretrained models and all the code needed to reproduce the experiments from our [ICCV 2019 paper](http://arxiv.xxx).
+In this repo, we provide pretrained models and all the code needed to reproduce the experiments from our [ICCV 2019 paper](https://arxiv.org/abs/1909.11874).
 
 This repository is based on and inspired by @Jin-Hwa Kim's [work](https://github.com/jnhwkim/ban-vqa). We sincerely thank for their sharing of the codes.
 
