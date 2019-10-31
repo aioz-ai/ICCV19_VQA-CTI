@@ -120,7 +120,7 @@ def evaluate(model, dataloader, args):
     upper_bound = 0
     num_data = 0
     with torch.no_grad():
-        for v, b, q, a, _ in iter(dataloader):
+        for v, b, q, a, _, _ in iter(dataloader):
             v = v.to(device)
             b = b.to(device)
             q = q.to(device)
