@@ -16,13 +16,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch._six import string_classes
-from torch.utils.data.dataloader import default_collate
 import math
 import time
 
 # from dataset import tfidf_from_questions
 # from dataset import Dictionary
-import dataset_MC as dataset
+import src.dataset as dataset
 
 EPS = 1e-7
 
@@ -375,7 +374,7 @@ def time_since(since, percent):
     return '%s (- %s)' % (as_minutes(seconds), as_minutes(rest_seconds))
 
 
-def tfidf_loading( use_tfidf, w_emb, args, dataroot='data_vqa'):
+def tfidf_loading(use_tfidf, w_emb, args, dataroot='data_vqa'):
 
     tfidf = None
     weights = None
@@ -390,8 +389,13 @@ def tfidf_loading( use_tfidf, w_emb, args, dataroot='data_vqa'):
             print("Load embedding tfidf and weights from file successfully")
         else:
             print("Embedding tfidf and weights haven't been saving before")
-            dictionary = dataset.Dictionary.load_from_file('data/dictionary.pkl')
-            tfidf, weights = dataset.tfidf_from_questions(['train', 'val', 'test2015'], dictionary)
+            dictionary = dataset.Dictionary.load_from_file('%s/dictionary.pkl' % dataroot)
+            # if args.use_TDIUC:
+            #     tfidf, weights = dataset.tfidf_from_questions(['train', 'val'], dictionary,
+            #                                                   dataroot=dataroot, target='TDIUC')
+            # else:
+            tfidf, weights = dataset.tfidf_from_questions(['train', 'val', 'test2015'], dictionary,
+                                                          dataroot='data_vqa', target='vqa')
             w_emb.init_embedding('%s/glove6b_init_300d.npy' % dataroot, tfidf, weights)
             with open('%s/embed_tfidf_weights.pkl' % dataroot, 'wb') as f:
                 torch.save(w_emb, f)

@@ -1,20 +1,19 @@
 """
 Compact Triliner Model
-Jin-Hwa Kim, Jaehyun Jun, Byoung-Tak Zhang
-https://arxiv.org/abs/1805.07932
+Tuong Do, Thanh-Toan Do, Huy Tran, Erman Tjiputra, Quang D. Tran
+https://arxiv.org/pdf/1909.11874
 
 This code is written by Huy Tran.
 """
-import torch
 import torch.nn as nn
-from utils import tfidf_loading
-from attention import BiAttention, TriAttention, StackedAttention
-from language_model import WordEmbedding, QuestionEmbedding
-from classifier import SimpleClassifier
-from fc import FCNet
-from bc import BCNet
-from tc import TCNet
-from counting import Counter
+from src.utils import tfidf_loading
+from src.attention import BiAttention, TriAttention, StackedAttention
+from src.language_model import WordEmbedding, QuestionEmbedding
+from src.classifier import SimpleClassifier
+from src.fc import FCNet
+from src.bc import BCNet
+from src.tc import TCNet
+from src.counting import Counter
 
 
 class BanModel(nn.Module):

@@ -1,11 +1,12 @@
-'''
+"""
 This code is written by Huy Tran.
-'''
+"""
+
 import torch
-import utils
+import src.utils as utils
 import contextlib
 from collections import defaultdict, OrderedDict
-from meters import AverageMeter, TimeMeter
+from src.meters import AverageMeter, TimeMeter
 
 
 class Trainer(object):

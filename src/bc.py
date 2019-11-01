@@ -10,7 +10,7 @@ import math
 import torch
 import torch.nn as nn
 from torch.nn.utils.weight_norm import weight_norm
-from fc import FCNet
+from src.fc import FCNet
 
 
 class BCNet(nn.Module):

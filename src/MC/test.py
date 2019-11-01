@@ -3,16 +3,13 @@ This code is modified from Hengyuan Hu's repository.
 https://github.com/hengyuan-hu/bottom-up-attention-vqa
 """
 import argparse
-import json
 import progressbar
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
-from dataset_MC import Dictionary, V7WDataset
-import base_model_MC as base_model
-import utils
-import time
-from train_MC import evaluate
+from src.MC.dataset import Dictionary, V7WDataset
+import src.MC.base_model as base_model
+import src.utils as utils
+from src.MC.train import evaluate
 
 def parse_args():
     parser = argparse.ArgumentParser()

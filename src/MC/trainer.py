@@ -2,12 +2,10 @@
 This code is written by Huy Tran.
 """
 import torch
-import torch.nn as nn
-import utils
+import src.utils as utils
 import contextlib
 from collections import defaultdict, OrderedDict
-import torch.optim.lr_scheduler as lr_scheduler
-from meters import AverageMeter, TimeMeter
+from src.meters import AverageMeter, TimeMeter
 
 
 class Trainer(object):

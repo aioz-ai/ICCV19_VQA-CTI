@@ -7,10 +7,10 @@ import os
 import json
 import _pickle as cPickle
 import numpy as np
-import utils
+import src.utils as utils
 import warnings
 with warnings.catch_warnings():
-    warnings.filterwarnings("ignore",category=FutureWarning)
+    warnings.filterwarnings("ignore", category=FutureWarning)
     import h5py
 import torch
 from torch.utils.data import Dataset
@@ -21,6 +21,7 @@ COUNTING_ONLY = False
 
 # Following Trott et al. (ICLR 2018)
 #   Interpretable Counting for Visual Question Answering
+
 def is_howmany(q, a, label2ans):
     if 'how many' in q.lower() or \
        ('number of' in q.lower() and 'number of the' not in q.lower()) or \
@@ -162,6 +163,8 @@ def _load_TDIUC_dataset(dataroot, name, img_id2val, label2ans, teacher_logits):
 
     utils.assert_eq(len(questions), len(answers))
     entries = []
+    # questions = questions[:10000]
+    # answers = answers[:10000]
     for question, answer in zip(questions, answers):
         utils.assert_eq(question['question_id'], answer['question_id'])
         utils.assert_eq(question['image_id'], answer['image_id'])

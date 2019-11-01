@@ -6,12 +6,11 @@ import argparse
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-import numpy as np
 
-from dataset import Dictionary, VQAFeatureDataset
-import base_model
-from train import evaluate
-import utils
+from src.FFOE.dataset import Dictionary, VQAFeatureDataset
+import src.FFOE.base_model as base_model
+from src.FFOE.train import evaluate
+import src.utils as utils
 
 
 def parse_args():

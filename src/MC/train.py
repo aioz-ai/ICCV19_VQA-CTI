@@ -5,9 +5,9 @@ https://github.com/jnhwkim/ban-vqa
 import os
 import time
 import torch
-import utils
+import src.utils
 import torch.nn as nn
-from trainer_MC import Trainer
+from src.MC.trainer import Trainer
 warmup_updates = 4000
 
 

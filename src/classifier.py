@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from torch.nn.utils.weight_norm import weight_norm
-import activation as act
+import src.activation as act
 
 class SimpleClassifier(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim, args):

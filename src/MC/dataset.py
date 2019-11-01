@@ -7,8 +7,9 @@ import os
 import json
 import _pickle as cPickle
 import numpy as np
-import utils
+import src.utils as utils
 import warnings
+
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=FutureWarning)
     import h5py

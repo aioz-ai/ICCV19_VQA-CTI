@@ -1,0 +1,10 @@
+# Ignore data folder for light-weight
+data
+data_vqa
+data_TDIUC
+data_v7w
+results
+saved_models
+*.pyc
+*.swp
+.idea

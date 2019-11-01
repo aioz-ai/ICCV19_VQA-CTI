@@ -4,8 +4,8 @@ This code is written by Huy Tran.
 """
 import torch
 import torch.nn as nn
-from fc import FCNet
-import Tensor
+from src.fc import FCNet
+import src.Tensor as Tensor
 class TCNet(nn.Module):
     def __init__(self, v_dim, q_dim, a_dim, h_dim, h_out, rank, glimpse, act='ReLU', dropout=[.2, .5], k=1):
         super(TCNet, self).__init__()

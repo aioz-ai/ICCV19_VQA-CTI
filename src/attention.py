@@ -5,9 +5,9 @@ This code is written by Huy Tran.
 import torch
 import torch.nn as nn
 from torch.nn.utils.weight_norm import weight_norm
-from fc import FCNet
-from bc import BCNet
-from tc import TCNet
+from src.fc import FCNet
+from src.bc import BCNet
+from src.tc import TCNet
 import time
 
 

@@ -5,10 +5,11 @@ https://github.com/jnhwkim/ban-vqa
 import os
 import time
 import torch
-import utils
+import src.utils as utils
 import torch.nn as nn
-from trainer_OE import Trainer
-import loss_function
+from src.FFOE.trainer import Trainer
+from src.loss_function import Distillation_Loss
+
 warmup_updates = 4000
 
 
@@ -33,7 +34,7 @@ def train(args, model, train_loader, eval_loader, num_epochs, output, opt=None, 
     optim = torch.optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr_default) \
         if opt is None else opt
     if args.distillation:
-        criterion = loss_function.Distillation_Loss(T=args.T, alpha=args.alpha)
+        criterion = Distillation_Loss(T=args.T, alpha=args.alpha)
 
     else:
         criterion = torch.nn.BCEWithLogitsLoss(reduction='sum')

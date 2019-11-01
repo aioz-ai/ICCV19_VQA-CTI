@@ -7,9 +7,9 @@ import json
 import progressbar
 import torch
 from torch.utils.data import DataLoader
-from dataset_OE import Dictionary, VQAFeatureDataset, TDIUCFeatureDataset
-import base_model_OE as base_model
-import utils
+from src.FFOE.dataset import Dictionary, VQAFeatureDataset, TDIUCFeatureDataset
+import src.FFOE.base_model as base_model
+import src.utils as utils
 import numpy as np
 
 
