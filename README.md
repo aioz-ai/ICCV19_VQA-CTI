@@ -88,7 +88,7 @@ $ python3 src/FFOE/test.py --model ban --batch_size 256 --use_TDIUC --TDIUC_dir 
 ### 3. For the pretrained model tested on Visual7W dataset`.
 Please download the [link](https://vision.aioz.io/d/54b8e39ab7b343a7997e/) and move to `saved_models/V7W/`. The trained model can be tested in VQA test set via: 
 ```
-$ python3 src/FFOE/MC.py --model cti --batch_size 64 --input saved_models/V7W/cti --epoch 10
+$ python3 src/MC/test.py --model cti --batch_size 64 --input saved_models/V7W/cti --epoch 10
 ```
 
 **Note:** The result json file can be found in the directory `results/`.
