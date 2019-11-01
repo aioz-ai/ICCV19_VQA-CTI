@@ -46,16 +46,16 @@ All data should be downloaded via [link](https://vision.aioz.io/d/965325537ca642
 
 To train the model using train set of **VQA 2.0 dataset**, please follow:
 ```
-$ python3 main_OE.py --model ban --batch_size 256 --gamma 2 --distillation --T 5 --alpha 0.005 --output saved_models/VQA2.0/ban
+$ python3 src/FFOE/main.py --model ban --batch_size 256 --gamma 2 --distillation --T 5 --alpha 0.005 --output saved_models/VQA2.0/ban
 ```
 To train the model using both train set and validation set  of **VQA 2.0 dataset**, please follow:
 ```
-$ python3 main_OE.py --model ban --batch_size 256 --gamma 2 --distillation --use_both --T 5 --alpha 0.005 --output saved_models/VQA2.0/ban_trainval
+$ python3 src/FFOE/main.py --model ban --batch_size 256 --gamma 2 --distillation --use_both --T 5 --alpha 0.005 --output saved_models/VQA2.0/ban_trainval
 ```
 ### 2. For free-form opened-ended task in TDIUC
 The model can be trained via:
 ```
-$ python3 main_OE.py --model ban --batch_size 256 --gamma 2 --use_TDIUC --TDIUC_dir data_TDIUC --distillation --T 3 --alpha 0.3 --output saved_models/TDIUC/ban
+$ python3 src/FFOE/main.py --model ban --batch_size 256 --gamma 2 --use_TDIUC --TDIUC_dir data_TDIUC --distillation --T 3 --alpha 0.3 --output saved_models/TDIUC/ban
 ```
 
 **Note:** The teacher logit file for **VQA 2.0** and **TDIUC dataset** should be downloaded via [link](https://vision.aioz.io/d/9951e206d5ae4c4a97a1/) and extracted to `data_vqa/` and `data_TDIUC/` directory respectively to make the knowledge distillation learning feasible.
@@ -63,7 +63,7 @@ $ python3 main_OE.py --model ban --batch_size 256 --gamma 2 --use_TDIUC --TDIUC_
 ### 3. For multiple choice task
 We provide the training method for CTI model in multiple choice VQA task on Visual7W dataset.
 ```
-$ python3 main_MC.py --model cti --batch_size 64 --gamma 2 --output saved_models/V7W/cti
+$ python3 src/MC/main.py --model cti --batch_size 64 --gamma 2 --output saved_models/V7W/cti
 ```
 **Note:** The training scores will be printed every epoch. Trained model are stored at  `save_models\`
 
@@ -73,7 +73,7 @@ We also provide the pretrained models reported as the best single models in the 
 ### 1. For the pretrained model tested on VQA-2.0 dataset. 
 Please download the [link](https://vision.aioz.io/d/b3a905767b334284b33d/) and move to `saved_models/VQA2.0/`. The trained model can be tested in VQA test-dev set via: 
 ```
-$ python3 test_OE.py --model ban --batch_size 256 --input saved_models/VQA2.0/ban
+$ python3 src/FFOE/test.py --model ban --batch_size 256 --input saved_models/VQA2.0/ban
 ```
 #### Submit predictions on EvalAI
 
@@ -82,13 +82,13 @@ For VQA 2.0 dataset, it is not possible to automaticaly compute the accuracies o
 ### 2. For the pretrained model tested on TDIUC dataset.
 Please download the [link](https://vision.aioz.io/d/a4b48764dd4f485b9b7b/) and move to `saved_models/TDIUC/`. The trained model can be tested in TDIUC validation set via: 
 ```
-$ python3 test_OE.py --model ban --batch_size 256 --use_TDIUC --TDIUC_dir data_TDIUC --input saved_models/TDIUC/ban
+$ python3 src/FFOE/test.py --model ban --batch_size 256 --use_TDIUC --TDIUC_dir data_TDIUC --input saved_models/TDIUC/ban --split val
 ```
 
 ### 3. For the pretrained model tested on Visual7W dataset`.
 Please download the [link](https://vision.aioz.io/d/54b8e39ab7b343a7997e/) and move to `saved_models/V7W/`. The trained model can be tested in VQA test set via: 
 ```
-$ python3 test_MC.py --model cti --batch_size 64 --input saved_models/V7W/cti --epoch 10
+$ python3 src/FFOE/MC.py --model cti --batch_size 64 --input saved_models/V7W/cti --epoch 10
 ```
 
 **Note:** The result json file can be found in the directory `results/`.
