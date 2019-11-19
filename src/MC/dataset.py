@@ -113,8 +113,7 @@ def _load_dataset(dataroot, name, img_id2val, label2ans, ans_candidates):
         ans_gt = ans_candidates[str(question['question_id'])]['ans_gt']
         label = ans_candidates[str(question['question_id'])]['label']
 
-        if not COUNTING_ONLY or is_howmany(question['question'], None, label2ans):
-            entries.append(_create_entry(img_id2val[img_id], question, None, label, ans_gt, ans_mc))
+        entries.append(_create_entry(img_id2val[img_id], question, None, label, ans_gt, ans_mc))
 
     return entries
 
