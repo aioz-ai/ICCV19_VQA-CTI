@@ -164,7 +164,7 @@ class Trainer(object):
                     # calculate loss and sample size
                     # sample[0] = v, sample[1] = b, sample[2] = q, sample[3] = a
                     answers = sample[3]
-                    teacher_logits = sample[4]
+                    teacher_logits = sample[5]
                     if self.args.model == "ban":
                         preds, _ = self.model(sample[0], sample[1], sample[2], sample[3])
                         if self.distillation:
@@ -179,8 +179,16 @@ class Trainer(object):
                         if self.distillation:
                             loss = self.criterion(preds.float(), teacher_logits.float(), answers)
                         else:
-                            loss = self.criterion(preds.float(), teacher_logits.float(), answers)
+                            loss = self.criterion(preds.float(), answers)
                             loss = loss/answers.size(0)  # divided by batch size
+                        final_preds = preds
+
+                    if self.args.model == 'cti':
+                        preds = self.model(sample[0], sample[2], sample[4])
+
+                        loss = self.criterion(preds.float(), answers)
+                        loss /= answers.size(0)
+
                         final_preds = preds
 
                     batch_score = compute_score_with_logits(final_preds, sample[3].data, sample[4]).sum()

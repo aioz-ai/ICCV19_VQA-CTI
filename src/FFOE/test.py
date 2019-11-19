@@ -11,7 +11,7 @@ from src.FFOE.dataset import Dictionary, VQAFeatureDataset, TDIUCFeatureDataset
 import src.FFOE.base_model as base_model
 import src.utils as utils
 import numpy as np
-
+import _pickle as pickle
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -84,17 +84,21 @@ def get_logits(args, model, dataloader, device):
     bar = progressbar.ProgressBar(maxval=N)
     bar.start()
     with torch.no_grad():
-        for v, b, q, _, i, _ in iter(dataloader):
+        for v, b, q, _, ans, i, _ in iter(dataloader):
             bar.update(idx)
             batch_size = v.size(0)
             v = v.to(device)
             b = b.to(device)
             q = q.to(device)
+            ans = ans.to(device)
             if args.model == "stacked_attention":
                 logits = model(v, q)
 
             elif args.model == "ban":
                 logits, _ = model(v, b, q, None)
+
+            elif args.model == 'cti':
+                logits = model(v, q, ans)
 
             pred[idx:idx+batch_size, :].copy_(logits.data)
             qIds[idx:idx+batch_size].copy_(i)
@@ -102,6 +106,7 @@ def get_logits(args, model, dataloader, device):
             if args.debug:
                 print(get_question(q.data[0], dataloader))
                 print(get_answer(logits.data[0], dataloader))
+
     bar.update(idx)
     return pred, qIds
 
@@ -171,10 +176,13 @@ if __name__ == '__main__':
 
         utils.create_dir(args.output)
         model_label += 'epoch%s' % args.epoch
-        out_file = args.output + '/' + args.input.split('/')[-1] + '.json'
+        # out_file = args.output + '/' + args.input.split('/')[-1] + '.json'
         # with open(args.output + '/%s_%s.pkl' % (args.split, model_label), 'wb') as f:
         #     pickle.dump(results, f, protocol=2)
         with open(args.output+'/%s_%s.json' % (args.split, model_label), 'w') as f:
             json.dump(results, f)
-
+        if args.model == 'cti':
+            results = make_json_with_logits(logits, qIds)
+            with open('results/%s_%s_logits.pkl' % (args.model, args.split), 'wb') as f:
+                pickle.dump(results, f)
     process(args, model, eval_loader)

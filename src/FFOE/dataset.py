@@ -94,7 +94,7 @@ class Dictionary(object):
         return len(self.idx2word)
 
 
-def _create_entry(img, question, answer, teacher_logit):
+def _create_entry(img, question, answer, ans, teacher_logit):
     if None!=answer:
         answer.pop('image_id')
         answer.pop('question_id')
@@ -104,6 +104,7 @@ def _create_entry(img, question, answer, teacher_logit):
         'image'       : img,
         'question'    : question['question'],
         'answer'      : answer,
+        'ans'         : ans,
         'teacher_logit': teacher_logit}
     return entry
 
@@ -131,9 +132,14 @@ def _load_dataset(dataroot, name, img_id2val, label2ans, teacher_logits):
             utils.assert_eq(question['question_id'], answer['question_id'])
             utils.assert_eq(question['image_id'], answer['image_id'])
             img_id = question['image_id']
-
+            if answer['scores']:
+                idx_ans = np.argmax(answer['scores'])
+                ans = answer['labels'][idx_ans]
+                ans = label2ans[ans]
+            else:
+                ans = ''
             if not COUNTING_ONLY or is_howmany(question['question'], answer, label2ans):
-                entries.append(_create_entry(img_id2val[img_id], question, answer, \
+                entries.append(_create_entry(img_id2val[img_id], question, answer, ans, \
                                teacher_logits[question['question_id']] if len(teacher_logits)>0 else None))
 
     else: # test2015
@@ -279,6 +285,7 @@ class VQAFeatureDataset(Dataset):
                 self.pos_boxes = np.array(hf.get('pos_boxes'))
         self.entries = _load_dataset(dataroot, name, self.img_id2idx, self.label2ans, self.teacher_logits)
         self.tokenize(question_len)
+        self.ans_token()
         self.tensorize()
         self.v_dim = self.features.size(1 if self.adaptive else 2)
         self.s_dim = self.spatials.size(1 if self.adaptive else 2)
@@ -299,6 +306,22 @@ class VQAFeatureDataset(Dataset):
             utils.assert_eq(len(tokens), max_length)
             entry['q_token'] = tokens
 
+    def ans_token(self, max_length=3):
+        """Tokenizes the answer.
+
+        This will add q_token in each entry of the dataset.
+        -1 represent nil, and should be treated as padding_idx in embedding
+        """
+        for entry in self.entries:
+            tokens = self.dictionary.tokenize(entry['ans'], False)
+            tokens = tokens[:max_length]
+            if len(tokens) < max_length:
+                # Note here we pad in front of the sentence
+                padding = [self.dictionary.padding_idx] * (max_length - len(tokens))
+                tokens = tokens + padding
+            utils.assert_eq(len(tokens), max_length)
+            entry['ans_token'] = tokens
+
     def tensorize(self):
         self.features = torch.from_numpy(self.features)
         self.spatials = torch.from_numpy(self.spatials)
@@ -306,6 +329,8 @@ class VQAFeatureDataset(Dataset):
         for entry in self.entries:
             question = torch.from_numpy(np.array(entry['q_token']))
             entry['q_token'] = question
+            ans = torch.from_numpy(np.array(entry['ans_token']))
+            entry['ans_token'] = ans
 
             answer = entry['answer']
             if None!=answer:
@@ -332,6 +357,7 @@ class VQAFeatureDataset(Dataset):
         question = entry['q_token']
         question_id = entry['question_id']
         answer = entry['answer']
+        ans = entry['ans_token']
 
         if None!=answer:
             try:
@@ -343,7 +369,7 @@ class VQAFeatureDataset(Dataset):
             target = torch.zeros(self.num_ans_candidates)
             if labels is not None:
                 target.scatter_(0, labels, scores)
-            return features, spatials, question, target, question_id, teacher_logit
+            return features, spatials, question, target, ans, question_id, teacher_logit
         else:
             return features, spatials, question, 0, question_id, 0
 

@@ -67,13 +67,14 @@ def train(args, model, train_loader, eval_loader, num_epochs, output, opt=None, 
             logger.write('decreased lr: %.8f' % trainer.optimizer.param_groups[0]['lr'])
         else:
             logger.write('lr: %.8f' % trainer.optimizer.param_groups[0]['lr'])
-        for i, (v, b, q, a, _, t_logits) in enumerate(train_loader):
+        for i, (v, b, q, a, ans, _, t_logits) in enumerate(train_loader):
             v = v.to(device)
             b = b.to(device)
             q = q.to(device)
             a = a.to(device)
+            ans = ans.to(device)
             t_logits = t_logits.to(device)
-            sample = [v, b, q, a, t_logits]
+            sample = [v, b, q, a, ans, t_logits]
             if i < num_batches - 1 and (i + 1) % update_freq > 0:
                 trainer.train_step(sample, update_params=False)
             else:
