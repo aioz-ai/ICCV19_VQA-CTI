@@ -122,11 +122,12 @@ def evaluate(model, dataloader, args):
     upper_bound = 0
     num_data = 0
     with torch.no_grad():
-        for v, b, q, a, _, _ in iter(dataloader):
+        for v, b, q, a, ans, _, _ in iter(dataloader):
             v = v.to(device)
             b = b.to(device)
             q = q.to(device)
             a = a.to(device)
+            ans = ans.to(device)
             final_preds = None
 
             if args.model == "ban":
@@ -134,6 +135,9 @@ def evaluate(model, dataloader, args):
 
             elif args.model == "san":
                 final_preds = model(v, q)
+
+            elif args.model == 'cti':
+                final_preds = model(v, q, ans)
 
             batch_score = compute_score_with_logits(final_preds, a.to(device)).sum()
             score += batch_score

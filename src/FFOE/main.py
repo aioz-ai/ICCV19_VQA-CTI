@@ -27,7 +27,7 @@ def parse_args():
     # Joint representation C dimension
     parser.add_argument('--num_hid', type=int, default=1024)
     # Choices of models
-    parser.add_argument('--model', type=str, default='ban', choices=['ban', 'san'],
+    parser.add_argument('--model', type=str, default='ban', choices=['ban', 'san', 'cti'],
                         help='the model we use')
     parser.add_argument('--op', type=str, default='c')
     # Data

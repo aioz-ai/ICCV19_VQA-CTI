@@ -128,6 +128,8 @@ def _load_dataset(dataroot, name, img_id2val, label2ans, teacher_logits):
 
         utils.assert_eq(len(questions), len(answers))
         entries = []
+        questions = questions[:10000]
+        answers = answers[:10000]
         for question, answer in zip(questions, answers):
             utils.assert_eq(question['question_id'], answer['question_id'])
             utils.assert_eq(question['image_id'], answer['image_id'])
